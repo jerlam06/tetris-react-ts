@@ -1,5 +1,5 @@
 import { MoveDirection, ShapeType } from "./@types";
-import { wallKickData, wallKickDataI } from "./game-data";
+import { tetrominoes, wallKickData, wallKickDataI } from "./game-data";
 import gameSettings from "./game-settings.json";
 
 export function rotateMatrix(matrix: Array<Array<string>>) {
@@ -15,38 +15,42 @@ export function rotateMatrix(matrix: Array<Array<string>>) {
             newMatrix[i][j] = matrix[size - j - 1][i];
         }
     }
-
     return newMatrix;
 }
 
 export function rotateTetro(tetro: CurrentTetromino, grid: Array<string[]>): CurrentTetromino {
     if (tetro.shapeType === ShapeType.O) return tetro;
 
+    function applyRotation(rotation: number) {
+        if (rotation === 3) {
+            return 0;
+        }
+        return rotation++;
+    }
     const tetroTest = { ...tetro, shape: JSON.parse(JSON.stringify(tetro.shape)) };
     tetroTest.shape = rotateMatrix(tetro.shape);
-    tetroTest.applyRotation();
-    console.log("rotation idx test:", tetroTest.rotationIdx);
+    tetroTest.rotationIdx = applyRotation(tetroTest.rotationIdx);
 
-    const wkData = tetroTest.shapeType === ShapeType.I ? wallKickDataI[tetroTest.rotationIdx] : wallKickData[tetroTest.rotationIdx];
+    const wkData =
+        tetroTest.shapeType === ShapeType.I
+            ? wallKickDataI[tetroTest.rotationIdx]
+            : wallKickData[tetroTest.rotationIdx];
     let rotateSuccess = false;
-    for (const test in wkData) {
-        const xOffset = wkData[test][0];
-        const yOffset = wkData[test][1];
-        // console.log("testX", testX);
-        // console.log("testY", testY);
+
+    for (let i = 0; i < wkData.length; i++) {
+        const xOffset = wkData[i][0];
+        const yOffset = -wkData[i][1];
 
         const success = wallKickCheck(grid, tetroTest, xOffset, yOffset);
         if (success) {
             rotateSuccess = true;
-            tetroTest.x += wkData[test][0];
-            tetroTest.y += wkData[test][1];
+            tetroTest.x += xOffset;
+            tetroTest.y += yOffset;
             break;
         }
     }
 
     if (rotateSuccess) {
-        console.log(" rotate Success", tetroTest.x, tetroTest.y);
-
         return tetroTest;
     } else {
         return { ...tetro };
@@ -54,48 +58,20 @@ export function rotateTetro(tetro: CurrentTetromino, grid: Array<string[]>): Cur
 }
 
 export function wallKickCheck(grid: Array<string[]>, tetro: CurrentTetromino, xOffset: number, yOffset: number) {
-    console.log(" shape:", tetro.shape);
-
-    const newGrid = cleanGrid(JSON.parse(JSON.stringify(grid)));
-    const xPos = tetro.x + xOffset;
-    const yPos = tetro.y + yOffset;
+    const newGrid = cleanGrid(grid);
+    const xPos = tetro.x;
+    const yPos = tetro.y;
     const tetroSize = tetro.shape.length;
-    console.log("xPos", tetro.x, "+", xOffset);
-    console.log("yPos", tetro.y, "+", yOffset);
 
-    for (let y = 0; y < gameSettings.gridHeight - 1; y++) {
-        if (y < yPos) continue; // If tetro is not passed yet
-        if (y >= yPos + tetroSize) break; // If tetro was already passed
-        const yWithOffset = y + yOffset;
-
-        for (let x = 0; x < gameSettings.gridWidth - 1; x++) {
-            if (x < xPos) continue;
-            if (x >= xPos + tetroSize) continue;
-            const xWithOffset = x + xOffset;
-
-            console.log("y", y);
-            console.log("x", x);
-            console.log("yPos", yPos);
-            console.log("xPos", xPos);
+    const startY = yPos;
+    const endY = yPos + tetroSize;
+    for (let y = startY; y < endY; y++) {
+        for (let x = xPos; x < xPos + tetroSize; x++) {
             const tetroCell = tetro.shape[y - yPos][x - xPos];
-            const isAllowed =
-                newGrid[yWithOffset] !== undefined && newGrid[yWithOffset][xWithOffset] !== undefined && newGrid[yWithOffset][xWithOffset] !== "X";
 
-            console.log("newGrid[yWithOffset][xWithOffset]", newGrid[yWithOffset][xWithOffset], yWithOffset, xWithOffset);
-
-            if (tetroCell === "O") {
-                if (isAllowed) {
-                    // newGrid[y][x] = "O";
-                } else {
-                    console.log("y", y);
-                    console.log("x", x);
-                    console.warn("Tetro cannot rotate, next test...");
-                    // Is not allwed
+            if (tetroCell === "X") {
+                if (newGrid[y + yOffset] === undefined || isCellBusy(newGrid[y + yOffset][x + xOffset])) {
                     return false;
-                }
-            } else {
-                if (isAllowed) {
-                    // newGrid[y][x] = "";
                 }
             }
         }
@@ -124,29 +100,31 @@ export function updateGrid(grid: Array<string[]>, tetro: CurrentTetromino) {
             const tetroCell = tetro.shape[y - yPos][x - xPos];
             // Make sure tetroCell is not out of grid
             if (newGrid[y] !== undefined && newGrid[y][x] !== undefined) {
-                if (tetroCell === "O") {
-                    newGrid[y][x] = "O";
-                } else {
-                    newGrid[y][x] = "";
+                if (tetroCell === "X") {
+                    newGrid[y][x] = "X";
                 }
             }
         }
     }
+
     return newGrid;
 }
 
 function cleanGrid(grid: Array<string[]>) {
+    const newGrid: Array<string[]> = [];
     for (let y = 0; y < grid.length; y++) {
         const row = grid[y];
+        if (newGrid[y] === undefined) newGrid[y] = [];
         for (let x = 0; x < row.length; x++) {
             const cell = row[x];
-            if (cell === "O") {
-                grid[y][x] = "";
+            if (cell === "X") {
+                newGrid[y][x] = "";
+            } else {
+                newGrid[y][x] = cell;
             }
         }
     }
-
-    return grid;
+    return newGrid;
 }
 
 export function canMoveTo(dir: MoveDirection, grid: Array<string[]>) {
@@ -160,76 +138,73 @@ export function canMoveTo(dir: MoveDirection, grid: Array<string[]>) {
         const row = grid[y];
         for (let x = 0; x < row.length; x++) {
             const cell = row[x];
-            if (cell === "O") {
+            if (cell === "X") {
                 const adjacentLeft = grid[y][x - 1];
-                if (adjacentLeft === undefined || adjacentLeft === "X") {
+                if (isCellBusy(adjacentLeft)) {
                     canMoveTo.left = false;
                 }
                 const adjacentRight = grid[y][x + 1];
-                if (adjacentRight === undefined || adjacentRight === "X") {
+                if (isCellBusy(adjacentRight)) {
                     canMoveTo.right = false;
                 }
                 if (y === gameSettings.gridHeight - 1) {
                     canMoveTo.down = false;
                 } else {
                     const adjacentDown = grid[y + 1][x];
-                    if (adjacentDown === undefined || adjacentDown === "X") {
+                    if (isCellBusy(adjacentDown)) {
                         canMoveTo.down = false;
                     }
                 }
             }
         }
     }
+    // console.log(canMoveTo);
 
     return canMoveTo[dir];
 }
 
-// function checkCanMoveTo(dir: MoveDirection, tetro: CurrentTetromino, grid?: Array<string[]>): boolean {
-//     console.log(tetro.x);
+function isCellBusy(cell: string) {
+    if (cell === undefined || (cell !== "" && cell !== "X")) return true;
+    return false;
+}
 
-//     if (dir === MoveDirection.right) {
-//         if (tetro.x < gameSettings.gridWidth - tetro.shape.length + (hasInnerOffset(tetro).right ? 1 : 0)) {
-//             return true;
-//         }
-//     }
-//     if (dir === MoveDirection.left) {
-//         if (tetro.x > 0 - (hasInnerOffset(tetro).left ? 1 : 0)) {
-//             return true;
-//         }
-//     }
-//     if (dir === MoveDirection.down) {
-//         if (tetro.y < gameSettings.gridHeight - tetro.shape.length + (hasInnerOffset(tetro).down ? 1 : 0)) {
-//             return true;
-//         }
-//     }
-//     return false;
-// }
+export function saveTetroOnGrid(grid: Array<string[]>, tetro: CurrentTetromino) {
+    const newGrid: Array<string[]> = [];
+    for (let y = 0; y < grid.length; y++) {
+        const row = grid[y];
+        if (newGrid[y] === undefined) newGrid[y] = [];
+        for (let x = 0; x < row.length; x++) {
+            const cell = row[x];
+            if (cell === "X") {
+                newGrid[y][x] = tetro.shapeType;
+            } else {
+                newGrid[y][x] = cell;
+            }
+        }
+    }
 
-// function hasInnerOffset(tetro: CurrentTetromino, checkDoubleOffset?: boolean) {
-//     const offsets: Offsets = {
-//         left: true,
-//         right: true,
-//         down: true,
-//     };
+    // Removes full lines
+    const newGrid2 = [];
+    for (let y = 0; y < newGrid.length; y++) {
+        const row = newGrid[y];
+        if (!row.some((c) => c === "")) {
+            newGrid2.unshift(["", "", "", "", "", "", "", "", "", ""]);
+            continue;
+        }
+        newGrid2.push(newGrid[y]);
+    }
+    return newGrid2;
+}
 
-//     if (checkDoubleOffset) {
-//         offsets.doubleLeft = true;
-//     }
+export function newTetro(): CurrentTetromino {
+    const shapes = [ShapeType.I, ShapeType.J, ShapeType.L, ShapeType.O, ShapeType.S, ShapeType.T, ShapeType.Z];
+    const randShape = shapes[Math.floor(Math.random() * shapes.length)];
 
-//     for (let y = 0; y < tetro.shape.length; y++) {
-//         for (let x = 0; x < tetro.shape.length; x++) {
-//             const cell = tetro.shape[y][x];
-
-//             if (offsets.left === true && x === 0 && cell === "O") {
-//                 offsets.left = false;
-//             }
-//             if (offsets.right === true && x === tetro.shape.length - 1 && cell === "O") {
-//                 offsets.right = false;
-//             }
-//             if (offsets.down === true && y === tetro.shape.length - 1 && cell === "O") {
-//                 offsets.down = false;
-//             }
-//         }
-//     }
-//     return offsets;
-// }
+    return {
+        shape: tetrominoes[randShape],
+        shapeType: ShapeType[randShape],
+        rotationIdx: 0,
+        x: 2,
+        y: 0,
+    };
+}

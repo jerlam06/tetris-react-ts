@@ -1,43 +1,32 @@
-import { useEffect, useRef, useState } from "react";
-import { MoveDirection, ShapeType } from "../../../utils/@types";
-import { initialGrid, tetrominoes } from "../../../utils/game-data";
-import { canMoveTo, moveTetro, rotateTetro, updateGrid } from "../../../utils/utils";
+import { useEffect, useState } from "react";
+import { MoveDirection } from "../../../utils/@types";
+import { initialGrid } from "../../../utils/game-data";
+import { canMoveTo, moveTetro, newTetro, rotateTetro, saveTetroOnGrid, updateGrid } from "../../../utils/utils";
 import useInterval from "../../_hooks/useInterval";
 import useUserInput from "../../_hooks/useUserInput";
 import Row from "./Row/Row";
 
-const initialTetromino: CurrentTetromino = {
-    shape: tetrominoes.J,
-    shapeType: ShapeType.J,
-    rotationIdx: 0,
-    x: 2,
-    y: 0,
-    applyRotation: function () {
-        if (this.rotationIdx === 3) {
-            this.rotationIdx = 0;
-        } else {
-            this.rotationIdx++;
-        }
-    },
-};
-
 export default function GameGrid({ paused }: { paused: boolean }) {
     const [grid, setGrid] = useState(initialGrid);
-    const [currentTetro, setCurrentTetro] = useState(initialTetromino);
+    const [currentTetro, setCurrentTetro] = useState(newTetro());
     const [keyPressed, nextKey] = useUserInput();
 
     // Game Loop
     useInterval(
         () => {
+            // console.log(grid);
             if (canMoveTo(MoveDirection.down, grid)) {
                 setCurrentTetro((tetro) => moveTetro(MoveDirection.down, tetro));
+            } else {
+                setGrid((g) => saveTetroOnGrid(g, currentTetro));
+                setCurrentTetro(newTetro());
             }
         },
-        paused ? null : 800
+        paused ? null : 700
     );
 
     useEffect(() => {
-        setGrid(updateGrid(grid, currentTetro));
+        setGrid((g) => updateGrid(g, currentTetro));
     }, [currentTetro]);
 
     function handleOnRotate() {
@@ -56,7 +45,7 @@ export default function GameGrid({ paused }: { paused: boolean }) {
         }
     }
 
-    if (!paused && keyPressed !== null) {
+    if (paused && keyPressed !== null) {
         nextKey();
     } else if (keyPressed !== null) {
         switch (keyPressed) {
@@ -75,7 +64,7 @@ export default function GameGrid({ paused }: { paused: boolean }) {
     return (
         <div className="GameGrid" style={styles}>
             {grid.map((row, idx) => {
-                return <Row index={idx + 1} cells={row} key={idx} />;
+                return <Row tetroType={currentTetro.shapeType} cells={row} key={idx} />;
             })}
         </div>
     );

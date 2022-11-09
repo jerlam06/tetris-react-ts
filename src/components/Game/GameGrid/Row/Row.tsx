@@ -1,10 +1,11 @@
+import { ShapeType } from "../../../../utils/@types";
 import Cell from "./Cell/Cell";
 
-export default function Row({ index, cells }: { index: number; cells: Array<string> }) {
+export default function Row({ tetroType, cells }: { tetroType: ShapeType; cells: Array<string> }) {
     return (
         <div className="Row" style={styles}>
             {cells.map((cell, idx) => {
-                return <Cell index={idx + 1} cell={cell} key={idx} />;
+                return <Cell tetroType={tetroType} cell={cell} key={idx} />;
             })}
         </div>
     );

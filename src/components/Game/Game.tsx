@@ -2,7 +2,7 @@ import { useState } from "react";
 import GameGrid from "./GameGrid/GameGrid";
 
 export default function Game() {
-    const [gamePaused, setGamePaused] = useState(true);
+    const [gamePaused, setGamePaused] = useState(false);
 
     return (
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>

@@ -4,7 +4,6 @@ interface CurrentTetromino {
     rotationIdx: number;
     x: number;
     y: number;
-    applyRotation: () => void;
 }
 
 type CanMoveTo = {
